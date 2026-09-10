@@ -6,6 +6,18 @@ import expo.modules.kotlin.modules.ModuleDefinition
 class FlexatarRendererModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("FlexatarRenderer")
-    Function("getStatus") { mapOf("engine" to "local-assets", "renderer" to "webview-host", "frameOutput" to "app-controlled") }
+
+    View(FlexatarRendererView::class) {
+      Events("onRendererEvent")
+    }
+
+    Function("getStatus") {
+      mapOf(
+        "engine" to "local-assets",
+        "renderer" to "android-webview-host",
+        "webgl" to "pending-runtime-check",
+        "frameOutput" to "app-controlled"
+      )
+    }
   }
 }
