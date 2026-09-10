@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#080808}canvas{width:100%;height:100%;display:block}</style>
+</head>
+<body>
+<canvas id="flexatarCanvas"></canvas>
+<script type="module">
+  const canvas = document.getElementById('flexatarCanvas');
+  const engineFilesUrl = 'file:///android_asset/flexatar';
+  let renderer = null;
+
+  const emit = (type, detail = {}) => {
+    document.title = `flexatar:${type}`;
+    window.ReactNativeWebView?.postMessage(JSON.stringify({ type, ...detail }));
+  };
+
+  async function start() {
+    emit('starting');
+    try {
+      // The renderer package is browser/WebGL based. Keeping the package boundary
+      // here lets Android use the same Flexatar engine while native Expo owns the host view.
+      const SDK = await import('https://esm.sh/flexatar-easy-renderer@0.1.0');
+      renderer = new SDK.FtarRenderer(engineFilesUrl, canvas);
+      await renderer.readyPromise;
+      renderer.size = { width: 720, height: 720 };
+      renderer.slot1 = `${engineFilesUrl}/default_ftar.p`;
+      renderer.background = `${engineFilesUrl}/backgrounds/1.jpg`;
+      emit('ready', { engineFilesUrl });
+    } catch (error) {
+      emit('error', { message: String(error?.stack || error) });
+    }
+  }
+
+  window.flexatarNativeCommand = async (command, rawPayload) => {
+    try {
+      const payload = JSON.parse(rawPayload || '{}');
+      if (command === 'resize' && renderer) {
+        renderer.size = { width: Number(payload.width) || 720, height: Number(payload.height) || 720 };
+      }
+      if (command === 'setAvatar' && renderer && payload.asset) {
+        renderer.slot1 = payload.asset;
+      }
+    } catch (error) {
+      emit('command-error', { message: String(error) });
+    }
+  };
+
+  start();
+</script>
+</body>
+</html>
