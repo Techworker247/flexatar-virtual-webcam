@@ -7,11 +7,18 @@ const withFlexatarAssets: ConfigPlugin = (config) => withDangerousMod(config, ['
   const source = path.join(projectRoot, 'files');
   const host = path.join(projectRoot, 'assets', 'flexatar', 'renderer-host.html');
   const target = path.join(cfg.modRequest.platformProjectRoot, 'app', 'src', 'main', 'assets', 'flexatar');
-  if (!fs.existsSync(source)) return cfg;
+
+  if (!fs.existsSync(source)) {
+    throw new Error(`Flexatar engine asset directory is missing: ${source}`);
+  }
+  if (!fs.existsSync(host)) {
+    throw new Error(`Flexatar renderer host is missing: ${host}`);
+  }
+
   fs.rmSync(target, { recursive: true, force: true });
   fs.mkdirSync(target, { recursive: true });
   fs.cpSync(source, target, { recursive: true });
-  if (fs.existsSync(host)) fs.copyFileSync(host, path.join(target, 'renderer-host.html'));
+  fs.copyFileSync(host, path.join(target, 'renderer-host.html'));
   return cfg;
 }]);
 
