@@ -33,4 +33,8 @@ class FlexatarRendererView(context: Context, appContext: AppContext) : ExpoView(
       webView.evaluateJavascript("window.flexatarNativeCommand && window.flexatarNativeCommand('$command', '$safePayload');", null)
     }
   }
+
+  fun feedAudioPcm(base64: String) {
+    sendCommand("audioPcm", "{\"base64\":\"$base64\"}")
+  }
 }
