@@ -1,0 +1,4 @@
+{
+  "platforms": ["android"],
+  "android": { "modules": ["expo.modules.flexatarrenderer.FlexatarRendererModule", "expo.modules.audiopipeline.AudioPipelineModule", "expo.modules.mediapipeline.MediaPipelineModule"] }
+}
