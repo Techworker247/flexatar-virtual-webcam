@@ -35,7 +35,7 @@ class Camera2TestModule : Module() {
         val sizes = c.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
           ?.getOutputSizes(android.graphics.SurfaceTexture::class.java)
           ?.take(24)
-          ?.map(Size::toMap)
+          ?.map { size -> mapOf("width" to size.width, "height" to size.height) }
           ?: emptyList()
 
         mapOf(
@@ -58,6 +58,4 @@ class Camera2TestModule : Module() {
       }
     }
   }
-
-  private fun Size.toMap() = mapOf("width" to width, "height" to height)
 }
