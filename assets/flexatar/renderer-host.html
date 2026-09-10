@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#080808}canvas{width:100%;height:100%;display:block}</style>
+</head>
+<body>
+<canvas id="flexatarCanvas"></canvas>
+<script type="module">
+  const canvas = document.getElementById('flexatarCanvas');
+  const engineFilesUrl = 'file:///android_asset/flexatar';
+  let renderer = null;
+  let ready = false;
+
+  const emit = (type, detail = {}) => {
+    document.title = `flexatar:${type}`;
+    window.ReactNativeWebView?.postMessage(JSON.stringify({ type, ...detail }));
+  };
+
+  async function start() {
+    emit('starting');
+    try {
+      // The renderer bundle is copied from this repository into Android assets.
+      // No runtime CDN is required for the Flexatar SDK itself.
+      const SDK = await import('./easy-renderer.js');
+      renderer = new SDK.FtarRenderer(engineFilesUrl, canvas);
+      await renderer.readyPromise;
+      renderer.size = { width: 720, height: 720 };
+      renderer.slot1 = `${engineFilesUrl}/default_ftar.p`;
+      renderer.background = `${engineFilesUrl}/backgrounds/1.jpg`;
+      ready = true;
+      emit('ready', { engineFilesUrl, localRenderer: true });
+    } catch (error) {
+      emit('error', { message: String(error?.stack || error) });
+    }
+  }
+
+  window.flexatarNativeCommand = async (command, rawPayload) => {
+    try {
+      const payload = JSON.parse(rawPayload || '{}');
+      if (command === 'resize' && renderer) {
+        renderer.size = { width: Number(payload.width) || 720, height: Number(payload.height) || 720 };
+      } else if (command === 'setAvatar' && renderer && payload.asset) {
+        renderer.slot1 = payload.asset;
+      } else if (command === 'audioPcm' && renderer && ready && payload.base64) {
+        const binary = atob(payload.base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        renderer.vCamStream?.port?.postMessage({ audioBuffer: bytes.buffer }, [bytes.buffer]);
+      }
+    } catch (error) {
+      emit('command-error', { message: String(error) });
+    }
+  };
+
+  start();
+</script>
+</body>
+</html>
