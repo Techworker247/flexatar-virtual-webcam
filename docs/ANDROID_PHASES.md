@@ -30,9 +30,12 @@ The Android application is being built as an Expo development-build project with
 - Real-device latency and WebGL performance still need validation.
 
 ### Phase 4 — Flexatar frames → controlled virtual camera
-**Status: CONTROLLED TEST SINK**
+**Status: TEST SINK CONTRACT IMPLEMENTED**
 
-Frame output remains app-controlled. No hidden third-party camera replacement is enabled.
+- The media pipeline now validates frame dimensions, timestamps, rotation and requested FPS.
+- Frame timestamps are required to be monotonic.
+- The sink explicitly reports `externalInjection: false`.
+- The next implementation step is a controlled frame producer feeding this contract.
 
 ### Phase 5 — Camera2 integration
 **Status: TEST HARNESS PLANNED**
