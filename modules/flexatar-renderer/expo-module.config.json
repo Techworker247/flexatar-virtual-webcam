@@ -1,0 +1,4 @@
+{
+  "platforms": [],
+  "android": { "modules": ["expo.modules.flexatarrenderer.FlexatarRendererModule"] }
+}
