@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",
+    "allowJs": false,
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["App.tsx", "modules/**/*.ts"]
+}
