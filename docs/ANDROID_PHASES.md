@@ -5,25 +5,31 @@ The Android application is being built as an Expo development-build project with
 ## Current status
 
 ### Phase 1 — Flexatar Android renderer
-**Status: INTEGRATION IN PROGRESS**
+**Status: IMPLEMENTATION COMPLETE / DEVICE VALIDATION PENDING**
 
-- Expo native `FlexatarRendererView` now provides the Android renderer surface.
-- The renderer host is packaged with the existing Flexatar engine assets during Expo prebuild.
-- The host initializes `FtarRenderer` and points it at the packaged engine files.
-- The current bootstrap uses the browser ESM package as the engine adapter; this is an integration checkpoint, not the final offline distribution mechanism.
-- WebGL/runtime compatibility still needs to be validated on a real Android development build.
+- Expo native `FlexatarRendererView` provides the Android renderer surface.
+- The existing Flexatar engine assets are packaged into Android assets by the Expo prebuild plugin.
+- `easy-renderer.js` is loaded from the packaged assets; the runtime CDN dependency has been removed.
+- `FtarRenderer` initializes against the packaged engine files and the default avatar/background.
+- Real-device WebGL/WebView/WASM validation remains before this phase can be marked fully validated.
 
 ### Phase 2 — real-time voice processing
-**Status: SCAFFOLD COMPLETE**
+**Status: IMPLEMENTED**
 
-Native 16 kHz mono PCM capture and the processed-audio fan-out boundary exist. Voice DSP/effects remain to be implemented.
+- Native `AudioRecord` capture runs at 16 kHz mono.
+- The processing boundary now includes DC removal, noise gating, gain and soft limiting.
+- Processed audio is emitted as 800-frame Float32 little-endian PCM chunks.
+- Audio level telemetry remains available for the control UI.
 
 ### Phase 3 — processed audio → Flexatar lip-sync
-**Status: ADAPTER PENDING**
+**Status: IMPLEMENTED / DEVICE VALIDATION PENDING**
 
-The audio pipeline has a stable hand-off point; the final connection to the renderer's audio driver is pending Phase 1 runtime validation.
+- The Expo renderer view exposes a native `feedAudioPcm` view function.
+- Processed PCM is forwarded to the Flexatar renderer's existing audio/lip-sync path.
+- The existing Flexatar speech models remain local in the packaged engine assets.
+- Real-device latency and WebGL performance still need validation.
 
-### Phase 4 — Flexatar frames → virtual camera
+### Phase 4 — Flexatar frames → controlled virtual camera
 **Status: CONTROLLED TEST SINK**
 
 Frame output remains app-controlled. No hidden third-party camera replacement is enabled.
@@ -44,6 +50,6 @@ Processed PCM remains inside the app/test pipeline. A universal Android micropho
 Test the completed audio path in targets where the app controls the media endpoint. Do not use this phase to bypass another application's privacy or media controls.
 
 ### Phase 8 — unified control interface
-**Status: EXPO SHELL COMPLETE / FINAL INTEGRATION PENDING**
+**Status: EXPO SHELL / PIPELINE CONTROLS INTEGRATED**
 
-The Expo control UI is present. Final controls will be connected after renderer, audio and frame pipelines are validated.
+The Expo UI now exposes the renderer and live voice-processing/lip-sync controls. Final release controls and validation remain after the controlled media test phases.
