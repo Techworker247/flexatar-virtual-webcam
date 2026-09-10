@@ -1,39 +1,36 @@
 # Android implementation phases
 
-The Android application is an Expo development-build project with local native Expo Modules. No APK/AAB is produced until implementation and validation are complete.
+The Android application is an Expo development-build project with local Expo Modules. No APK/AAB is produced until implementation and permitted validation are complete.
 
 ## Current status
 
 ### Phase 1 — Flexatar Android renderer
-**Status: IMPLEMENTATION COMPLETE / DEVICE VALIDATION PENDING**
-
-- Expo native renderer surface is integrated.
-- Flexatar engine assets and the local renderer bundle are packaged by Expo prebuild.
-- Runtime CDN dependency has been removed.
+**Status: IMPLEMENTED / DEVICE VALIDATION PENDING**
+- Native Expo renderer view hosts the local Flexatar WebGL/WASM bundle.
+- Engine assets are packaged into Android assets by the Expo prebuild plugin.
+- Renderer lifecycle/error events and frame descriptors are reported to the app.
 - WebGL/WebView/WASM behavior still requires a real Android development-build validation pass.
 
 ### Phase 2 — real-time voice processing
-**Status: IMPLEMENTED**
-
+**Status: IMPLEMENTED / DEVICE VALIDATION PENDING**
 - 16 kHz mono `AudioRecord` capture.
 - DC removal, noise gate, gain and soft limiting.
 - Processed PCM chunks and audio-level telemetry are available.
 
 ### Phase 3 — processed audio → Flexatar lip-sync
 **Status: IMPLEMENTED / DEVICE VALIDATION PENDING**
-
-- Processed PCM has a native-to-renderer hand-off through `feedAudioPcm`.
+- Validated processed PCM is routed through the active native renderer view.
 - Flexatar's local speech/lip-sync assets remain packaged with the renderer.
+- The same processed PCM stream is the source for the renderer lip-sync path.
 
-### Phase 4 — Flexatar frames → controlled virtual camera
-**Status: CONTROLLED FRAME SINK IMPLEMENTED**
-
-- Frame descriptors are accepted and validated for dimensions, timestamps, rotation and FPS.
-- This remains an app-controlled sink; it is not a hidden replacement for another application's camera.
+### Phase 4 — Flexatar frames → controlled media sink
+**Status: IMPLEMENTED / DEVICE VALIDATION PENDING**
+- The renderer publishes frame descriptors (dimensions, timestamp and FPS) through the native bridge.
+- The app submits those descriptors to the media pipeline for monotonicity/range validation.
+- This is an app-controlled output sink, not a hidden replacement for another application's camera.
 
 ### Phase 5 — Camera2 integration
 **Status: COMPATIBILITY HARNESS IMPLEMENTED / DEVICE VALIDATION PENDING**
-
 - Android Camera2 devices can be enumerated.
 - Lens-facing information, hardware level, sensor orientation and supported output sizes are exposed.
 - Frame descriptors can be validated against Camera2-compatible constraints.
@@ -41,25 +38,25 @@ The Android application is an Expo development-build project with local native E
 
 ### Phase 6 — Android microphone processing
 **Status: CONTROLLED PROCESSING PIPELINE**
-
-Processed PCM remains inside the app/test pipeline. A universal Android microphone injection layer is not assumed.
+- Microphone input is processed entirely inside the app pipeline.
+- There is no universal Android virtual-microphone assumption or arbitrary third-party microphone injection.
 
 ### Phase 7 — audio compatibility testing
-**Status: COMPATIBILITY HARNESS IMPLEMENTED / DEVICE VALIDATION PENDING**
-
-- The harness enforces 16 kHz mono `f32le` PCM with fixed 800-frame chunks.
-- Base64 payload length, finite normalized samples and monotonic chunk sequence are checked.
-- Accepted/rejected counts and accepted-frame totals are exposed to the Expo control UI.
-- Runtime behavior still requires a development-build validation pass on physical Android hardware.
+**Status: IMPLEMENTED / DEVICE VALIDATION PENDING**
+- The compatibility gate enforces 16 kHz mono `f32le` PCM with fixed 800-frame chunks.
+- Base64 payload length, finite normalized samples and monotonic sequence are checked.
+- Accepted/rejected counts and accepted-frame totals are exposed in the control UI.
 
 ### Phase 8 — unified control interface
-**Status: UNIFIED CONTROL FLOW IMPLEMENTED / DEVICE VALIDATION PENDING**
+**Status: IMPLEMENTED / DEVICE VALIDATION PENDING**
+- One control action starts/stops microphone → processing → compatibility gate → Flexatar lip-sync → controlled frame diagnostics.
+- Renderer state and media/audio diagnostics are visible in the control UI.
+- Camera remains an explicit test surface.
 
-- One control action starts/stops the app-controlled microphone → processing → compatibility gate → renderer path.
-- Renderer controls expose the same pipeline state and diagnostics.
-- Camera remains an explicit test surface rather than an implicit third-party injection target.
-- Final release controls follow the remaining device-validation work.
+## Explicit non-goals
+
+This branch does not implement covert or universal third-party camera/microphone injection, including making an arbitrary third-party application such as Telegram consume the app's media streams without an explicit supported integration. The completed architecture therefore provides controlled renderer/audio/frame test surfaces instead.
 
 ## Build policy
 
-Do not generate an installable APK/AAB until the implementation and permitted validation phases are complete.
+Do not generate an installable APK/AAB until implementation and permitted validation are complete.
