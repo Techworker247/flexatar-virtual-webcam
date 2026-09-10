@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
-import { WebView } from 'react-native-webview';
+import { FlexatarRendererView } from './modules/flexatar-renderer';
 
 const stages = [
   ['Phase 1', 'Flexatar Android renderer'],
@@ -19,8 +19,6 @@ export default function App() {
   const [camera, requestCamera] = useCameraPermissions();
   const [microphone, requestMicrophone] = useMicrophonePermissions();
   const [tab, setTab] = useState<'control' | 'camera' | 'renderer'>('control');
-
-  const rendererHtml = useMemo(() => `<!doctype html><html><body style="margin:0;background:#0b0d12"><canvas id="c" width="512" height="512"></canvas><script>const c=document.getElementById('c'),x=c.getContext('2d');x.fillStyle='#0b0d12';x.fillRect(0,0,512,512);x.fillStyle='#fff';x.font='24px sans-serif';x.textAlign='center';x.fillText('Flexatar engine host',256,240);x.font='16px sans-serif';x.fillStyle='#9aa4b2';x.fillText('Engine assets are packaged locally',256,275);</script></body></html>`, []);
 
   return <SafeAreaView style={styles.root}>
     <StatusBar style="light" />
@@ -43,10 +41,10 @@ export default function App() {
           <Text style={styles.label}>Microphone: {microphone?.status ?? 'checking'}</Text>
           <Pressable style={styles.button} onPress={async () => { await requestCamera(); await requestMicrophone(); }}><Text style={styles.buttonText}>Request media permissions</Text></Pressable>
         </View>
-        <View style={styles.notice}><Text style={styles.noticeTitle}>Integration boundary</Text><Text style={styles.label}>This build is designed around app-controlled media and test sinks. It does not silently inject camera or microphone data into third-party apps.</Text></View>
+        <View style={styles.notice}><Text style={styles.noticeTitle}>Integration boundary</Text><Text style={styles.label}>The renderer and media pipeline are app-controlled. Third-party camera or microphone injection is not enabled by this build.</Text></View>
       </>}
 
-      {tab === 'renderer' && <View style={styles.preview}><WebView originWhitelist={['*']} source={{ html: rendererHtml }} javaScriptEnabled /></View>}
+      {tab === 'renderer' && <View style={styles.preview}><FlexatarRendererView style={StyleSheet.absoluteFill} /></View>}
       {tab === 'camera' && <View style={styles.preview}><CameraView style={StyleSheet.absoluteFill} facing="front" mode="picture" /></View>}
     </ScrollView>
   </SafeAreaView>;
