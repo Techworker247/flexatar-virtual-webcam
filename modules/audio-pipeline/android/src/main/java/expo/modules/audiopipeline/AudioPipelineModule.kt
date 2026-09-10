@@ -8,6 +8,7 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 import kotlin.math.sqrt
 import kotlin.math.tanh
@@ -16,6 +17,11 @@ class AudioPipelineModule : Module() {
   private var recorder: AudioRecord? = null
   private var worker: Thread? = null
   @Volatile private var running = false
+  private val pcmChunks = AtomicLong(0)
+  private val rejectedChunks = AtomicLong(0)
+  private val acceptedFrames = AtomicLong(0)
+  @Volatile private var lastSequence = -1L
+  @Volatile private var nextSequence = 0L
 
   override fun definition() = ModuleDefinition {
     Name("AudioPipeline")
@@ -60,9 +66,6 @@ class AudioPipelineModule : Module() {
             val centered = raw - dcEstimate
             val magnitude = abs(centered)
 
-            // Lightweight real-time voice processing boundary:
-            // noise gate -> gain -> soft limiter. The processed signal remains
-            // 16 kHz mono and is delivered as Float32 PCM for lip-sync inference.
             val gated = if (magnitude < 0.012) centered * 0.15 else centered
             val amplified = gated * 1.35
             val processed = tanh(amplified * 1.25).toFloat()
@@ -71,7 +74,7 @@ class AudioPipelineModule : Module() {
             pending[pendingCount++] = processed
 
             if (pendingCount == pending.size) {
-              emitPcm(pending, sampleRate)
+              emitPcm(pending, sampleRate, nextSequence++)
               pendingCount = 0
             }
           }
@@ -92,9 +95,69 @@ class AudioPipelineModule : Module() {
       }
       recorder = null
     }
+
+    AsyncFunction("validatePcmChunk") { base64: String, sampleRate: Int, channels: Int, frames: Int, format: String, sequence: Long ->
+      val result = validateChunk(base64, sampleRate, channels, frames, format, sequence)
+      if (result.first) {
+        pcmChunks.incrementAndGet()
+        acceptedFrames.addAndGet(frames.toLong())
+        lastSequence = sequence
+      } else {
+        rejectedChunks.incrementAndGet()
+      }
+      mapOf(
+        "accepted" to result.first,
+        "reason" to result.second,
+        "sampleRate" to sampleRate,
+        "channels" to channels,
+        "frames" to frames,
+        "format" to format,
+        "sequence" to sequence
+      )
+    }
+
+    Function("getStats") {
+      mapOf(
+        "pcmChunks" to pcmChunks.get(),
+        "rejectedChunks" to rejectedChunks.get(),
+        "lastSequence" to lastSequence,
+        "acceptedFrames" to acceptedFrames.get()
+      )
+    }
+
+    Function("resetStats") {
+      pcmChunks.set(0)
+      rejectedChunks.set(0)
+      acceptedFrames.set(0)
+      lastSequence = -1L
+      nextSequence = 0L
+    }
   }
 
-  private fun emitPcm(samples: FloatArray, sampleRate: Int) {
+  private fun validateChunk(base64: String, sampleRate: Int, channels: Int, frames: Int, format: String, sequence: Long): Pair<Boolean, String> {
+    if (sampleRate != 16000) return false to "unsupported-sample-rate"
+    if (channels != 1) return false to "unsupported-channel-count"
+    if (frames != 800) return false to "invalid-frame-count"
+    if (format != "f32le") return false to "unsupported-format"
+    if (sequence < 0 || (lastSequence >= 0 && sequence <= lastSequence)) return false to "non-monotonic-sequence"
+
+    val bytes = try {
+      Base64.decode(base64, Base64.DEFAULT)
+    } catch (_: IllegalArgumentException) {
+      return false to "invalid-base64"
+    }
+    if (bytes.size != frames * 4) return false to "invalid-payload-length"
+
+    val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+    repeat(frames) {
+      val sample = buffer.float
+      if (!sample.isFinite()) return false to "non-finite-sample"
+      if (sample < -1.0f || sample > 1.0f) return false to "sample-out-of-range"
+    }
+    return true to "compatible"
+  }
+
+  private fun emitPcm(samples: FloatArray, sampleRate: Int, sequence: Long) {
     val bytes = ByteBuffer.allocate(samples.size * 4)
       .order(ByteOrder.LITTLE_ENDIAN)
     for (sample in samples) bytes.putFloat(sample)
@@ -106,7 +169,8 @@ class AudioPipelineModule : Module() {
         "base64" to encoded,
         "sampleRate" to sampleRate,
         "frames" to samples.size,
-        "format" to "f32le"
+        "format" to "f32le",
+        "sequence" to sequence
       )
     )
   }
