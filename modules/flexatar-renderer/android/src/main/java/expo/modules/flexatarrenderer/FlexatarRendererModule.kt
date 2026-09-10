@@ -9,6 +9,10 @@ class FlexatarRendererModule : Module() {
 
     View(FlexatarRendererView::class) {
       Events("onRendererEvent")
+
+      AsyncFunction("feedAudioPcm") { view: FlexatarRendererView, base64: String ->
+        view.feedAudioPcm(base64)
+      }
     }
 
     Function("getStatus") {
