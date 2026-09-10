@@ -3,7 +3,6 @@ package expo.modules.flexatarrenderer
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
-import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -26,14 +25,16 @@ class FlexatarRendererView(context: Context, appContext: AppContext) : ExpoView(
     webView.settings.allowContentAccess = true
     webView.settings.allowFileAccessFromFileURLs = true
     webView.settings.allowUniversalAccessFromFileURLs = true
-    webView.webChromeClient = WebChromeClient()
-    webView.webViewClient = object : WebViewClient() {
-      override fun onPageFinished(view: WebView, url: String) {
-        super.onPageFinished(view, url)
-        rendererReady = false
+    webView.webChromeClient = object : WebChromeClient() {
+      override fun onReceivedTitle(view: WebView, title: String) {
+        super.onReceivedTitle(view, title)
+        if (!title.startsWith("flexatar:")) return
+        val type = title.removePrefix("flexatar:")
+        rendererReady = type == "ready"
+        sendEvent("onRendererEvent", mapOf("type" to type, "localRenderer" to rendererReady))
       }
     }
-    webView.addJavascriptInterface(Bridge(), "FlexatarAndroid")
+    webView.webViewClient = WebViewClient()
     addView(webView)
     webView.loadUrl("file:///android_asset/flexatar/renderer-host.html")
   }
@@ -54,25 +55,10 @@ class FlexatarRendererView(context: Context, appContext: AppContext) : ExpoView(
     sendCommand("audioPcm", JSONObject(mapOf("base64" to base64)).toString())
   }
 
-  private inner class Bridge {
-    @JavascriptInterface
-    fun onRendererEvent(json: String) {
-      try {
-        val event = JSONObject(json)
-        val type = event.optString("type", "unknown")
-        rendererReady = type == "ready"
-        sendEvent("onRendererEvent", mapOf("type" to type, "message" to event.optString("message", ""), "localRenderer" to event.optBoolean("localRenderer", false)))
-      } catch (_: Exception) {
-        sendEvent("onRendererEvent", mapOf("type" to "bridge-error", "message" to "invalid-event"))
-      }
-    }
-  }
-
   override fun onDetachedFromWindow() {
     rendererReady = false
     webView.stopLoading()
     webView.loadUrl("about:blank")
-    webView.removeJavascriptInterface("FlexatarAndroid")
     webView.destroy()
     super.onDetachedFromWindow()
   }
