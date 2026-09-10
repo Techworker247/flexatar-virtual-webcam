@@ -45,14 +45,20 @@ The Android application is an Expo development-build project with local native E
 Processed PCM remains inside the app/test pipeline. A universal Android microphone injection layer is not assumed.
 
 ### Phase 7 — audio compatibility testing
-**Status: CONTROLLED TESTING PLANNED**
+**Status: COMPATIBILITY HARNESS IMPLEMENTED / DEVICE VALIDATION PENDING**
 
-The completed audio path will be tested only in media endpoints controlled by the app or an explicit test target.
+- The harness enforces 16 kHz mono `f32le` PCM with fixed 800-frame chunks.
+- Base64 payload length, finite normalized samples and monotonic chunk sequence are checked.
+- Accepted/rejected counts and accepted-frame totals are exposed to the Expo control UI.
+- Runtime behavior still requires a development-build validation pass on physical Android hardware.
 
 ### Phase 8 — unified control interface
-**Status: EXPO SHELL / PIPELINE CONTROLS INTEGRATED**
+**Status: UNIFIED CONTROL FLOW IMPLEMENTED / DEVICE VALIDATION PENDING**
 
-The Expo UI exposes renderer and voice-processing controls. Final release controls follow the remaining device-validation work.
+- One control action starts/stops the app-controlled microphone → processing → compatibility gate → renderer path.
+- Renderer controls expose the same pipeline state and diagnostics.
+- Camera remains an explicit test surface rather than an implicit third-party injection target.
+- Final release controls follow the remaining device-validation work.
 
 ## Build policy
 
