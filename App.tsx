@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { FlexatarRendererView } from './modules/flexatar-renderer';
+import AudioPipeline from './modules/audio-pipeline';
 
 const stages = [
   ['Phase 1', 'Flexatar Android renderer'],
@@ -19,12 +20,44 @@ export default function App() {
   const [camera, requestCamera] = useCameraPermissions();
   const [microphone, requestMicrophone] = useMicrophonePermissions();
   const [tab, setTab] = useState<'control' | 'camera' | 'renderer'>('control');
+  const [voiceRunning, setVoiceRunning] = useState(false);
+  const [audioRms, setAudioRms] = useState(0);
+  const rendererRef = useRef<any>(null);
+
+  useEffect(() => {
+    const pcmSubscription = AudioPipeline.addListener('audioPcm', (event) => {
+      rendererRef.current?.feedAudioPcm(event.base64);
+    });
+    const levelSubscription = AudioPipeline.addListener('audioLevel', (event) => {
+      setAudioRms(event.rms);
+    });
+
+    return () => {
+      pcmSubscription.remove();
+      levelSubscription.remove();
+      AudioPipeline.stop().catch(() => undefined);
+    };
+  }, []);
+
+  const toggleVoice = async () => {
+    if (voiceRunning) {
+      await AudioPipeline.stop();
+      setVoiceRunning(false);
+      return;
+    }
+
+    const permission = await requestMicrophone();
+    if (!permission.granted) return;
+
+    await AudioPipeline.start();
+    setVoiceRunning(true);
+  };
 
   return <SafeAreaView style={styles.root}>
     <StatusBar style="light" />
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.title}>Flexatar Android</Text>
-      <Text style={styles.subtitle}>Expo control layer • native media pipeline</Text>
+      <Text style={styles.subtitle}>Expo control layer • native renderer + voice pipeline</Text>
 
       <View style={styles.tabs}>
         {(['control', 'renderer', 'camera'] as const).map((item) => <Pressable key={item} onPress={() => setTab(item)} style={[styles.tab, tab === item && styles.tabActive]}><Text style={styles.tabText}>{item}</Text></Pressable>)}
@@ -33,7 +66,14 @@ export default function App() {
       {tab === 'control' && <>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Pipeline status</Text>
-          {stages.map(([id, label], i) => <View key={id} style={styles.row}><View style={[styles.dot, i === 0 ? styles.dotActive : styles.dotPending]} /><View style={styles.rowText}><Text style={styles.phase}>{id}</Text><Text style={styles.label}>{label}</Text></View><Text style={styles.state}>{i === 0 ? 'INTEGRATING' : 'PLANNED'}</Text></View>)}
+          {stages.map(([id, label], i) => {
+            const state = i === 0 ? 'COMPLETE' : i === 1 || i === 2 ? 'ACTIVE' : 'PLANNED';
+            return <View key={id} style={styles.row}>
+              <View style={[styles.dot, state === 'COMPLETE' ? styles.dotActive : state === 'ACTIVE' ? styles.dotWorking : styles.dotPending]} />
+              <View style={styles.rowText}><Text style={styles.phase}>{id}</Text><Text style={styles.label}>{label}</Text></View>
+              <Text style={styles.state}>{state}</Text>
+            </View>;
+          })}
         </View>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Permissions</Text>
@@ -41,10 +81,21 @@ export default function App() {
           <Text style={styles.label}>Microphone: {microphone?.status ?? 'checking'}</Text>
           <Pressable style={styles.button} onPress={async () => { await requestCamera(); await requestMicrophone(); }}><Text style={styles.buttonText}>Request media permissions</Text></Pressable>
         </View>
-        <View style={styles.notice}><Text style={styles.noticeTitle}>Integration boundary</Text><Text style={styles.label}>The renderer and media pipeline are app-controlled. Third-party camera or microphone injection is not enabled by this build.</Text></View>
+        <View style={styles.notice}><Text style={styles.noticeTitle}>Integration boundary</Text><Text style={styles.label}>The renderer, processed audio, and frame pipeline are app-controlled. Third-party camera or microphone injection is not enabled by this build.</Text></View>
       </>}
 
-      {tab === 'renderer' && <View style={styles.preview}><FlexatarRendererView style={StyleSheet.absoluteFill} /></View>}
+      {tab === 'renderer' && <>
+        <View style={styles.preview}><FlexatarRendererView ref={rendererRef} style={StyleSheet.absoluteFill} /></View>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Live voice → lip-sync</Text>
+          <Text style={styles.label}>16 kHz mono PCM • noise gate • gain • soft limiter • Flexatar speech inference</Text>
+          <Text style={styles.label}>Input level: {audioRms.toFixed(3)}</Text>
+          <Pressable style={[styles.button, voiceRunning && styles.buttonStop]} onPress={toggleVoice}>
+            <Text style={styles.buttonText}>{voiceRunning ? 'Stop voice processing' : 'Start voice processing'}</Text>
+          </Pressable>
+        </View>
+      </>}
+
       {tab === 'camera' && <View style={styles.preview}><CameraView style={StyleSheet.absoluteFill} facing="front" mode="picture" /></View>}
     </ScrollView>
   </SafeAreaView>;
@@ -64,12 +115,14 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dot: { width: 9, height: 9, borderRadius: 5 },
   dotActive: { backgroundColor: '#4ade80' },
+  dotWorking: { backgroundColor: '#facc15' },
   dotPending: { backgroundColor: '#586174' },
   rowText: { flex: 1 },
   phase: { color: '#dbe2ef', fontWeight: '700', fontSize: 12 },
   label: { color: '#8e98a8', lineHeight: 20 },
   state: { color: '#687386', fontSize: 10, fontWeight: '700' },
   button: { marginTop: 6, backgroundColor: '#2f6fed', borderRadius: 10, padding: 12, alignItems: 'center' },
+  buttonStop: { backgroundColor: '#9b3b3b' },
   buttonText: { color: '#fff', fontWeight: '700' },
   notice: { borderWidth: 1, borderColor: '#2b3342', borderRadius: 14, padding: 14, gap: 5 },
   noticeTitle: { color: '#dbe2ef', fontWeight: '700' },
