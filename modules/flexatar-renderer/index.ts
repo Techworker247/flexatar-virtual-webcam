@@ -7,8 +7,20 @@ export type FlexatarStatus = {
   frameOutput: string;
 };
 
+export type FlexatarRendererEvent = {
+  type: 'starting' | 'ready' | 'frame' | 'error' | 'command-error' | 'bridge-error' | 'resized' | 'avatarChanged' | string;
+  message?: string;
+  width?: number;
+  height?: number;
+  timestampNs?: number;
+  fps?: number;
+  localRenderer?: boolean;
+};
+
 export const FlexatarRendererModule = requireNativeModule('FlexatarRenderer') as {
   getStatus(): FlexatarStatus;
+  feedAudioPcm(base64: string): boolean;
+  sendCommand(command: string, payload: string): boolean;
 };
 
 export const FlexatarRendererView = requireNativeViewManager('FlexatarRenderer');
