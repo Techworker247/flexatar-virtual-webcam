@@ -11,17 +11,33 @@
   const engineFilesUrl = 'file:///android_asset/flexatar';
   let renderer = null;
   let ready = false;
+  let frameStartedAt = performance.now();
+  let frameCount = 0;
 
   const emit = (type, detail = {}) => {
+    const event = JSON.stringify({ type, ...detail });
     document.title = `flexatar:${type}`;
-    window.ReactNativeWebView?.postMessage(JSON.stringify({ type, ...detail }));
+    window.FlexatarNative?.event(event);
   };
+
+  function publishFrame() {
+    if (!ready) return;
+    frameCount += 1;
+    const now = performance.now();
+    const elapsed = Math.max(now - frameStartedAt, 1);
+    const fps = (frameCount * 1000) / elapsed;
+    emit('frame', {
+      width: canvas.width,
+      height: canvas.height,
+      timestampNs: Math.round(now * 1000000),
+      fps
+    });
+    requestAnimationFrame(publishFrame);
+  }
 
   async function start() {
     emit('starting');
     try {
-      // The renderer bundle is copied from this repository into Android assets.
-      // No runtime CDN is required for the Flexatar SDK itself.
       const SDK = await import('./easy-renderer.js');
       renderer = new SDK.FtarRenderer(engineFilesUrl, canvas);
       await renderer.readyPromise;
@@ -29,7 +45,10 @@
       renderer.slot1 = `${engineFilesUrl}/default_ftar.p`;
       renderer.background = `${engineFilesUrl}/backgrounds/1.jpg`;
       ready = true;
-      emit('ready', { engineFilesUrl, localRenderer: true });
+      frameStartedAt = performance.now();
+      frameCount = 0;
+      emit('ready', { engineFilesUrl, localRenderer: true, width: 720, height: 720 });
+      requestAnimationFrame(publishFrame);
     } catch (error) {
       emit('error', { message: String(error?.stack || error) });
     }
@@ -40,8 +59,10 @@
       const payload = JSON.parse(rawPayload || '{}');
       if (command === 'resize' && renderer) {
         renderer.size = { width: Number(payload.width) || 720, height: Number(payload.height) || 720 };
+        emit('resized', { width: renderer.size.width, height: renderer.size.height });
       } else if (command === 'setAvatar' && renderer && payload.asset) {
         renderer.slot1 = payload.asset;
+        emit('avatarChanged', { asset: payload.asset });
       } else if (command === 'audioPcm' && renderer && ready && payload.base64) {
         const binary = atob(payload.base64);
         const bytes = new Uint8Array(binary.length);
