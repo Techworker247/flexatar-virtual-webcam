@@ -9,7 +9,7 @@
     "scheme": "flexatar",
     "android": {
       "package": "com.techworker247.flexatar.android",
-      "permissions": ["CAMERA", "RECORD_AUDIO"]
+      "permissions": ["CAMERA", "RECORD_AUDIO", "INTERNET"]
     },
     "plugins": [
       "expo-dev-client",
