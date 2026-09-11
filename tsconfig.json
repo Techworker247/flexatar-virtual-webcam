@@ -7,5 +7,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["App.tsx", "modules/**/*.ts"]
+  "include": ["App.tsx", "modules/**/*.ts", "modules/**/*.tsx"]
 }
