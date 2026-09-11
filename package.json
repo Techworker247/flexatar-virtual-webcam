@@ -5,9 +5,11 @@
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start --dev-client",
+    "web": "expo start --web",
     "android": "expo run:android",
     "prebuild": "expo prebuild",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "validate": "node scripts/validate-android-pipeline.mjs"
   },
   "dependencies": {
     "expo": "~57.0.21",
