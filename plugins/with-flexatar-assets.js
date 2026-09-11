@@ -1,8 +1,8 @@
-import { withDangerousMod, ConfigPlugin } from '@expo/config-plugins';
+import { withDangerousMod } from '@expo/config-plugins';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const withFlexatarAssets: ConfigPlugin = (config) => withDangerousMod(config, ['android', async (cfg) => {
+const withFlexatarAssets = (config) => withDangerousMod(config, ['android', async (cfg) => {
   const projectRoot = cfg.modRequest.projectRoot;
   const source = path.join(projectRoot, 'files');
   const host = path.join(projectRoot, 'assets', 'flexatar', 'renderer-host.html');
