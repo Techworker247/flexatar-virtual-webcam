@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, View, Pressable, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { FlexatarRendererModule, FlexatarRendererView, FlexatarRendererEvent } from './modules/flexatar-renderer';
@@ -35,7 +35,15 @@ export default function App() {
       setAudioStats(AudioPipeline.getStats());
       if (result.accepted) FlexatarRendererModule.feedAudioPcm(event.base64);
     });
-    const levelSubscription = AudioPipeline.addListener('audioLevel', (event) => setAudioRms(event.rms));
+    const levelSubscription = AudioPipeline.addListener('audioLevel', (event) => {
+      setAudioRms(event.rms);
+      try {
+        MediaPipeline.submitLipSyncSample(event.rms);
+        setMediaStats(MediaPipeline.getStats());
+      } catch (_) {
+        // Invalid telemetry is rejected by the controlled media sink.
+      }
+    });
     return () => {
       pcmSubscription.remove();
       levelSubscription.remove();
@@ -64,6 +72,7 @@ export default function App() {
     AudioPipeline.resetStats();
     MediaPipeline.reset();
     setCompatibility(null);
+    setAudioRms(0);
     refreshDiagnostics();
   };
 
@@ -72,6 +81,15 @@ export default function App() {
       await AudioPipeline.stop();
       setVoiceRunning(false);
       refreshDiagnostics();
+      return;
+    }
+    if (Platform.OS === 'web') {
+      AudioPipeline.resetStats();
+      MediaPipeline.reset();
+      setCompatibility(null);
+      await AudioPipeline.start();
+      setVoiceRunning(true);
+      setTab('renderer');
       return;
     }
     const permission = await requestMicrophone();
@@ -88,6 +106,8 @@ export default function App() {
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.title}>Flexatar Android</Text>
       <Text style={styles.subtitle}>Expo control layer • renderer + processed audio + controlled media sink</Text>
+
+      {Platform.OS === 'web' && <View style={styles.webNotice}><Text style={styles.noticeTitle}>No-build test mode</Text><Text style={styles.label}>This browser run uses explicit simulations for the native renderer, AudioRecord and media sink. It validates JS control flow only; it does not validate Android WebView/WASM, microphone hardware or Camera2.</Text></View>}
 
       <View style={styles.tabs}>
         {(['control', 'renderer', 'camera'] as const).map((item) => <Pressable key={item} onPress={() => setTab(item)} style={[styles.tab, tab === item && styles.tabActive]}><Text style={styles.tabText}>{item}</Text></Pressable>)}
@@ -113,7 +133,7 @@ export default function App() {
           <Text style={styles.label}>Audio chunks rejected: {audioStats.rejectedChunks}</Text>
           <Text style={styles.label}>Accepted audio frames: {audioStats.acceptedFrames}</Text>
           <Text style={styles.label}>Rendered frame descriptors: {mediaStats.renderedFrames}</Text>
-          <Text style={styles.label}>Lip-sync samples: {mediaStats.lipSyncSamples}</Text>
+          <Text style={styles.label}>Lip-sync handoff samples: {mediaStats.lipSyncSamples}</Text>
           <Text style={styles.label}>Input level: {audioRms.toFixed(3)}</Text>
           <Pressable style={styles.secondaryButton} onPress={resetDiagnostics}><Text style={styles.buttonText}>Reset diagnostics</Text></Pressable>
         </View>
@@ -143,5 +163,5 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#080a0f' }, content: { padding: 20, gap: 16 }, title: { color: '#fff', fontSize: 28, fontWeight: '800' }, subtitle: { color: '#8e98a8', marginTop: -10 }, tabs: { flexDirection: 'row', gap: 8 }, tab: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, backgroundColor: '#151922' }, tabActive: { backgroundColor: '#273047' }, tabText: { color: '#fff', textTransform: 'capitalize' }, card: { backgroundColor: '#11151d', borderRadius: 16, padding: 16, gap: 12 }, cardTitle: { color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 4 }, row: { flexDirection: 'row', alignItems: 'center', gap: 10 }, dot: { width: 9, height: 9, borderRadius: 5 }, dotActive: { backgroundColor: '#4ade80' }, dotWorking: { backgroundColor: '#facc15' }, dotPending: { backgroundColor: '#586174' }, rowText: { flex: 1 }, phase: { color: '#dbe2ef', fontWeight: '700', fontSize: 12 }, label: { color: '#8e98a8', lineHeight: 20 }, state: { color: '#687386', fontSize: 10, fontWeight: '700' }, button: { marginTop: 6, backgroundColor: '#2f6fed', borderRadius: 10, padding: 12, alignItems: 'center' }, secondaryButton: { marginTop: 6, backgroundColor: '#273047', borderRadius: 10, padding: 12, alignItems: 'center' }, buttonStop: { backgroundColor: '#9b3b3b' }, buttonText: { color: '#fff', fontWeight: '700' }, notice: { borderWidth: 1, borderColor: '#2b3342', borderRadius: 14, padding: 14, gap: 5 }, noticeTitle: { color: '#dbe2ef', fontWeight: '700' }, preview: { height: 520, borderRadius: 18, overflow: 'hidden', backgroundColor: '#0b0d12' },
+  root: { flex: 1, backgroundColor: '#080a0f' }, content: { padding: 20, gap: 16 }, title: { color: '#fff', fontSize: 28, fontWeight: '800' }, subtitle: { color: '#8e98a8', marginTop: -10 }, tabs: { flexDirection: 'row', gap: 8 }, tab: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, backgroundColor: '#151922' }, tabActive: { backgroundColor: '#273047' }, tabText: { color: '#fff', textTransform: 'capitalize' }, card: { backgroundColor: '#11151d', borderRadius: 16, padding: 16, gap: 12 }, cardTitle: { color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 4 }, row: { flexDirection: 'row', alignItems: 'center', gap: 10 }, dot: { width: 9, height: 9, borderRadius: 5 }, dotActive: { backgroundColor: '#4ade80' }, dotWorking: { backgroundColor: '#facc15' }, dotPending: { backgroundColor: '#586174' }, rowText: { flex: 1 }, phase: { color: '#dbe2ef', fontWeight: '700', fontSize: 12 }, label: { color: '#8e98a8', lineHeight: 20 }, state: { color: '#687386', fontSize: 10, fontWeight: '700' }, button: { marginTop: 6, backgroundColor: '#2f6fed', borderRadius: 10, padding: 12, alignItems: 'center' }, secondaryButton: { marginTop: 6, backgroundColor: '#273047', borderRadius: 10, padding: 12, alignItems: 'center' }, buttonStop: { backgroundColor: '#9b3b3b' }, buttonText: { color: '#fff', fontWeight: '700' }, notice: { borderWidth: 1, borderColor: '#2b3342', borderRadius: 14, padding: 14, gap: 5 }, webNotice: { borderWidth: 1, borderColor: '#5b4b1f', borderRadius: 14, padding: 14, gap: 5, backgroundColor: '#17140b' }, noticeTitle: { color: '#dbe2ef', fontWeight: '700' }, preview: { height: 520, borderRadius: 18, overflow: 'hidden', backgroundColor: '#0b0d12' },
 });
