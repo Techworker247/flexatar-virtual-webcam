@@ -4,7 +4,7 @@
     "slug": "flexatar-android-control",
     "version": "0.2.0",
     "orientation": "portrait",
-    "platforms": ["android"],
+    "platforms": ["android", "web"],
     "newArchEnabled": true,
     "scheme": "flexatar",
     "android": {
